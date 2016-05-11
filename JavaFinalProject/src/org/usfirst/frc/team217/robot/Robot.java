@@ -11,7 +11,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  * @version 05/08/2016
  */
 
-//Testing
+//Dylan ur a nerd
 public class Robot extends IterativeRobot {
 	
 	CANTalon FLTurn, FRTurn, BLTurn, BRTurn;
