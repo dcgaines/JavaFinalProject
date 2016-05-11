@@ -11,7 +11,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  * @version 05/08/2016
  */
 public class Robot extends IterativeRobot {
-	//test commit
+	
 	CANTalon FLTurn, FRTurn, BLTurn, BRTurn;
 	Victor FLDrive, FRDrive, BLDrive, BRDrive;
 	Joystick driver;
