@@ -58,10 +58,7 @@ public class Robot extends IterativeRobot {
         BLTurn.set(driver.getZ());
         BRTurn.set(driver.getZ());
         
-        FLDrive.set(-driver.getY());
-        FRDrive.set(-driver.getY());
-        BLDrive.set(-driver.getY());
-        BRDrive.set(-driver.getY());
+        driveAll(-deadband(driver.getY()));
         
         double value = FLEncoder.getValue();
         
@@ -78,14 +75,22 @@ public class Robot extends IterativeRobot {
     }
     
     public void testPeriodic() {
+    	
+    }
     
+    public void driveAll(double input){
+        FLDrive.set(input);
+        FRDrive.set(input);
+        BLDrive.set(input);
+        BRDrive.set(input);
     }
     
     public double deadband(double input){
     	
     	double threshold = 0.08;
     	
-    	if(input < threshold && input > -threshold) return 0;
+    	if(input < 0 && input > -threshold) return 0;
+    	else if(input > 0 && input < threshold) return 0;
     	
     	return input;
     }
