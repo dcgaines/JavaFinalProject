@@ -60,6 +60,8 @@ public class Robot extends IterativeRobot {
         BLTurn.set(driver.getZ());
         BRTurn.set(driver.getZ());
         
+        if(driver.getRawButton(1))
+        		FLTurn.delete();
         driveAll(-deadband(driver.getY()));
         
         double value = FLEncoder.getValue();
