@@ -52,30 +52,13 @@ public class Robot extends IterativeRobot {
     public void teleopInit(){
     	max = 0;
     	min = FLEncoder.getValue();
+    	
+    	FLTurn.configMaxOutputVoltage(1);
     }
 
     public void teleopPeriodic() {
-        FLTurn.set(driver.getZ());
-        FRTurn.set(driver.getZ());
-        BLTurn.set(driver.getZ());
-        BRTurn.set(driver.getZ());
-        
-        if(driver.getRawButton(1))
-        		FLTurn.delete();
+        turnAll(deadband(driver.getZ()));
         driveAll(-deadband(driver.getY()));
-        
-        double value = FLEncoder.getValue();
-        
-        if(max < value){
-        	max = value;
-        }
-        if(min > value){
-        	min = value;
-        }
-        
-        SmartDashboard.putString("DB/String 0", "value: " + Double.toString(value));
-        SmartDashboard.putString("DB/String 1", "max: " + Double.toString(max));
-        SmartDashboard.putString("DB/String 2", "min: " + Double.toString(min));
     }
     
     public void testPeriodic() {
@@ -87,6 +70,13 @@ public class Robot extends IterativeRobot {
         FRDrive.set(input);
         BLDrive.set(input);
         BRDrive.set(input);
+    }
+    
+    public void turnAll(double input){
+    	FLTurn.set(input);
+    	FRTurn.set(input);
+    	BLTurn.set(input);
+    	BRTurn.set(input);
     }
     
     public double deadband(double input){
