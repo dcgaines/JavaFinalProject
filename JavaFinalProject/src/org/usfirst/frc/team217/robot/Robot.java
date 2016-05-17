@@ -76,7 +76,7 @@ public class Robot extends IterativeRobot {
     
     public void teleopInit(){
     	
-    	 NIVision.IMAQdxStartAcquisition(session);
+    	NIVision.IMAQdxStartAcquisition(session);
     	
     	max = 0;
     	min = FLEncoder.getValue();
@@ -93,6 +93,7 @@ public class Robot extends IterativeRobot {
 //        driveAll(-deadband(driver.getY()));
          
          tankDrive();
+//         swerveDrive();
         
         //SmartDashboard.putString("DB/String 0", Double.toString(gyro.getAngle()));
         
@@ -125,6 +126,21 @@ public class Robot extends IterativeRobot {
         BRDrive.set(-deadband(-driver.getRawAxis(5)));
     }
     
+    public void swerveDrive(){
+    	FLDrive.set(deadband(magnitude(driver)));
+    	FRDrive.set(deadband(magnitude(driver)));
+    	BLDrive.set(deadband(magnitude(driver)));
+    	BRDrive.set(deadband(magnitude(driver)));
+    }
+    
+    public double magnitude(Joystick stick){
+    	double y = stick.getY();
+    	double x = stick.getX();
+    	double mag = Math.pow(y, 2) + Math.pow(x, 2);
+    	mag = Math.sqrt(mag);
+    	return mag;
+    }
+    
     public double deadband(double input){
     	
     	double threshold = 0.08;
@@ -133,6 +149,20 @@ public class Robot extends IterativeRobot {
     	else if(input > 0 && input < threshold) return 0;
     	
     	return input;
+    }
+    
+    public double absVal(double num){
+    	if(num < 0)
+    		return -num;
+    	else
+    		return num;
+    }
+    
+    public double PID(double tar, double cur, double kP, double kI){
+    	double iSpeed, pSpeed;
+    	double error = tar - cur;
+    	pSpeed = error * kP;
+    	return pSpeed;
     }
     
 }
