@@ -1,6 +1,8 @@
 package org.usfirst.frc.team217.robot;
 
-import edu.wpi.first.wpilibj.IterativeRobot;
+import com.ni.vision.NIVision;
+import com.ni.vision.NIVision.Image;
+
 import edu.wpi.first.wpilibj.*;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
@@ -19,8 +21,23 @@ public class Robot extends IterativeRobot {
 	Joystick driver;
 	AnalogInput FLEncoder, FREncoder, BLEncoder, BREncoder;
 	double max, min;
+	PowerDistributionPanel pdp;
+	BuiltInAccelerometer acc;
+	
+    int session;
+    Image frame;
+	
+	Timer autonTimer;
 	
     public void robotInit() {
+    	
+        frame = NIVision.imaqCreateImage(NIVision.ImageType.IMAGE_RGB, 0);
+
+        // the camera name (ex "cam0") can be found through the roborio web interface
+        session = NIVision.IMAQdxOpenCamera("cam2",
+                NIVision.IMAQdxCameraControlMode.CameraControlModeController);
+        NIVision.IMAQdxConfigureGrab(session);
+    	
     	FLTurn = new CANTalon(3);
     	FRTurn = new CANTalon(1);
     	BLTurn = new CANTalon(2);
@@ -38,27 +55,48 @@ public class Robot extends IterativeRobot {
     	BLEncoder = new AnalogInput(2);
     	BREncoder = new AnalogInput(0);
     	
+    	pdp = new PowerDistributionPanel();
+    	acc = new BuiltInAccelerometer();
+    	
+    	autonTimer = new Timer();
+    	
     }
     
     public void autonomousInit() {
-    	
+    	autonTimer.reset();
+    	autonTimer.start();
     }
 
     public void autonomousPeriodic() {
-    	
-    	
+    	double speed = Math.sin(2 * autonTimer.get());
+    	FRDrive.set(speed);
+    	FRTurn.set(speed);
+
     }
     
     public void teleopInit(){
+    	
+    	 NIVision.IMAQdxStartAcquisition(session);
+    	
     	max = 0;
     	min = FLEncoder.getValue();
-    	
-    	FLTurn.configMaxOutputVoltage(1);
     }
 
     public void teleopPeriodic() {
-        turnAll(deadband(driver.getZ()));
-        driveAll(-deadband(driver.getY()));
+    	
+    	 NIVision.IMAQdxStartAcquisition(session);
+    	 
+         NIVision.IMAQdxGrab(session, frame, 1);
+         CameraServer.getInstance().setImage(frame);
+    	
+//        turnAll(deadband(driver.getZ()));
+//        driveAll(-deadband(driver.getY()));
+         
+         tankDrive();
+        
+        //SmartDashboard.putString("DB/String 0", Double.toString(gyro.getAngle()));
+        
+        Timer.delay(0.005);
     }
     
     public void testPeriodic() {
@@ -77,6 +115,14 @@ public class Robot extends IterativeRobot {
     	FRTurn.set(input);
     	BLTurn.set(input);
     	BRTurn.set(input);
+    }
+    
+    public void tankDrive(){
+       	
+        FLDrive.set(deadband(-driver.getY()));
+        FRDrive.set(deadband(-driver.getRawAxis(5)));
+        BLDrive.set(deadband(driver.getY()));
+        BRDrive.set(-deadband(-driver.getRawAxis(5)));
     }
     
     public double deadband(double input){
