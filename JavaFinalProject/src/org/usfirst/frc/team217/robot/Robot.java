@@ -20,7 +20,7 @@ public class Robot extends IterativeRobot {
 	Victor FLDrive, FRDrive, BLDrive, BRDrive;
 	Joystick driver;
 	AnalogInput FLEncoder, FREncoder, BLEncoder, BREncoder;
-	double max, min;
+	double max, min, angle;
 	PowerDistributionPanel pdp;
 	BuiltInAccelerometer acc;
 	
@@ -127,18 +127,16 @@ public class Robot extends IterativeRobot {
     }
     
     public void swerveDrive(){
-    	FLDrive.set(deadband(magnitude(driver)));
-    	FRDrive.set(deadband(magnitude(driver)));
-    	BLDrive.set(deadband(magnitude(driver)));
-    	BRDrive.set(deadband(magnitude(driver)));
+    	FLDrive.set(deadband(driver.getMagnitude()));
+    	FRDrive.set(deadband(driver.getMagnitude()));
+    	BLDrive.set(deadband(driver.getMagnitude()));
+    	BRDrive.set(deadband(driver.getMagnitude()));
+    	angle = driver.getDirectionDegrees();
+//    	FLTurn.set(PID(angle(angle), FLTurn.getEncPosition(), .001, .001));
     }
     
-    public double magnitude(Joystick stick){
-    	double y = stick.getY();
-    	double x = stick.getX();
-    	double mag = Math.pow(y, 2) + Math.pow(x, 2);
-    	mag = Math.sqrt(mag);
-    	return mag;
+    public double angle(double a){
+    	return (max - min) / 360 * a + min;
     }
     
     public double deadband(double input){
