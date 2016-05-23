@@ -65,38 +65,13 @@ public class Robot extends IterativeRobot {
     	 
          NIVision.IMAQdxGrab(session, frame, 1);
          CameraServer.getInstance().setImage(frame);
-
-         tankDrive();
-
         Timer.delay(0.005);
     }
     
     public void testPeriodic() {
     	
     }
-    
-    public void driveAll(double input){
-        FLDrive.set(input);
-        FRDrive.set(input);
-        BLDrive.set(input);
-        BRDrive.set(input);
-    }
-    
-    public void turnAll(double input){
-    	FLTurn.set(input);
-    	FRTurn.set(input);
-    	BLTurn.set(input);
-    	BRTurn.set(input);
-    }
-    
-    public void tankDrive(){
-       	
-        FLDrive.set(deadband(-driver.getY()));
-        FRDrive.set(deadband(-driver.getRawAxis(5)));
-        BLDrive.set(deadband(driver.getY()));
-        BRDrive.set(-deadband(-driver.getRawAxis(5)));
-    }
-    
+        
     public double deadband(double input){
     	
     	double threshold = 0.08;
