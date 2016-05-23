@@ -19,16 +19,10 @@ public class Robot extends IterativeRobot {
 	CANTalon FLTurn, FRTurn, BLTurn, BRTurn;
 	Victor FLDrive, FRDrive, BLDrive, BRDrive;
 	Joystick driver;
-	AnalogInput FLEncoder, FREncoder, BLEncoder, BREncoder;
-	double max, min, angle;
-	PowerDistributionPanel pdp;
-	BuiltInAccelerometer acc;
-	
+
     int session;
     Image frame;
-	
-	Timer autonTimer;
-	
+    
     public void robotInit() {
     	
         frame = NIVision.imaqCreateImage(NIVision.ImageType.IMAGE_RGB, 0);
@@ -49,37 +43,20 @@ public class Robot extends IterativeRobot {
     	BRDrive = new Victor(0);
     	
     	driver = new Joystick(0);
-    	
-    	FLEncoder = new AnalogInput(3);
-    	FREncoder = new AnalogInput(1);
-    	BLEncoder = new AnalogInput(2);
-    	BREncoder = new AnalogInput(0);
-    	
-    	pdp = new PowerDistributionPanel();
-    	acc = new BuiltInAccelerometer();
-    	
-    	autonTimer = new Timer();
+
     	
     }
     
     public void autonomousInit() {
-    	autonTimer.reset();
-    	autonTimer.start();
     }
 
     public void autonomousPeriodic() {
-    	double speed = Math.sin(2 * autonTimer.get());
-    	FRDrive.set(speed);
-    	FRTurn.set(speed);
 
     }
     
     public void teleopInit(){
     	
     	NIVision.IMAQdxStartAcquisition(session);
-    	
-    	max = 0;
-    	min = FLEncoder.getValue();
     }
 
     public void teleopPeriodic() {
@@ -88,15 +65,9 @@ public class Robot extends IterativeRobot {
     	 
          NIVision.IMAQdxGrab(session, frame, 1);
          CameraServer.getInstance().setImage(frame);
-    	
-//        turnAll(deadband(driver.getZ()));
-//        driveAll(-deadband(driver.getY()));
-         
+
          tankDrive();
-//         swerveDrive();
-        
-        //SmartDashboard.putString("DB/String 0", Double.toString(gyro.getAngle()));
-        
+
         Timer.delay(0.005);
     }
     
@@ -126,19 +97,6 @@ public class Robot extends IterativeRobot {
         BRDrive.set(-deadband(-driver.getRawAxis(5)));
     }
     
-    public void swerveDrive(){
-    	FLDrive.set(deadband(driver.getMagnitude()));
-    	FRDrive.set(deadband(driver.getMagnitude()));
-    	BLDrive.set(deadband(driver.getMagnitude()));
-    	BRDrive.set(deadband(driver.getMagnitude()));
-    	angle = driver.getDirectionDegrees();
-//    	FLTurn.set(PID(angle(angle), FLTurn.getEncPosition(), .001, .001));
-    }
-    
-    public double angle(double a){
-    	return (max - min) / 360 * a + min;
-    }
-    
     public double deadband(double input){
     	
     	double threshold = 0.08;
@@ -154,13 +112,6 @@ public class Robot extends IterativeRobot {
     		return -num;
     	else
     		return num;
-    }
-    
-    public double PID(double tar, double cur, double kP, double kI){
-    	double iSpeed, pSpeed;
-    	double error = tar - cur;
-    	pSpeed = error * kP;
-    	return pSpeed;
     }
     
 }
