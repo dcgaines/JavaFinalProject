@@ -1,9 +1,16 @@
 package org.usfirst.frc.team217.robot;
 
-import com.ni.vision.NIVision;
-import com.ni.vision.NIVision.Image;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
 
-import edu.wpi.first.wpilibj.*;
+import edu.wpi.first.wpilibj.CANTalon;
+import edu.wpi.first.wpilibj.CANTalon.FeedbackDevice;
+import edu.wpi.first.wpilibj.CANTalon.TalonControlMode;
+import edu.wpi.first.wpilibj.IterativeRobot;
+import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.Victor;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /**
@@ -13,80 +20,180 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  * @version 05/08/2016
  */
 
-
 public class Robot extends IterativeRobot {
-	
-	CANTalon FLTurn, FRTurn, BLTurn, BRTurn;
-	Victor FLDrive, FRDrive, BLDrive, BRDrive;
+
+	CANTalon[] turns = new CANTalon[4];
+	Victor[] drives = new Victor[4];
 	Joystick driver;
+	double lastValue, turnPos;
+	int[] straights = { 468, 545, 531, 387 };
+	int[] positions = { 0, 0, 0, 0 };
 
-    int session;
-    Image frame;
-    
-    public void robotInit() {
-    	
-        frame = NIVision.imaqCreateImage(NIVision.ImageType.IMAGE_RGB, 0);
+	PrintWriter inputWriter, outputWriter;
+	File f1, f2;
+	Timer autonTimer;
+	double calcSpeed = 0;
 
-        // the camera name (ex "cam0") can be found through the roborio web interface
-        session = NIVision.IMAQdxOpenCamera("cam2",
-                NIVision.IMAQdxCameraControlMode.CameraControlModeController);
-        NIVision.IMAQdxConfigureGrab(session);
-    	
-    	FLTurn = new CANTalon(3);
-    	FRTurn = new CANTalon(1);
-    	BLTurn = new CANTalon(2);
-    	BRTurn = new CANTalon(0);
-    	
-    	FLDrive = new Victor(3);
-    	FRDrive = new Victor(1);
-    	BLDrive = new Victor(2);
-    	BRDrive = new Victor(0);
-    	
-    	driver = new Joystick(0);
+	final double conversion = 1023 / 270.;
 
-    	
-    }
-    
-    public void autonomousInit() {
-    }
+	// int session;
+	// Image frame;
 
-    public void autonomousPeriodic() {
+	public void robotInit() {
 
-    }
-    
-    public void teleopInit(){
-    	
-    	NIVision.IMAQdxStartAcquisition(session);
-    }
+		// frame = NIVision.imaqCreateImage(NIVision.ImageType.IMAGE_RGB, 0);
+		//
+		// // the camera name (ex "cam0") can be found through the roborio web
+		// interface
+		// session = NIVision.IMAQdxOpenCamera("cam1",
+		// NIVision.IMAQdxCameraControlMode.CameraControlModeController);
+		// NIVision.IMAQdxConfigureGrab(session);
+		f1 = new File("/media/sda1/calc/input.txt");
+		f2 = new File("/media/sda1/calc/speed.txt");
+		try{
+		inputWriter = new PrintWriter(f1);
+		outputWriter = new PrintWriter(f2);
+		}catch(IOException e){
+			System.out.println("File(s) not found!");
+		}
 
-    public void teleopPeriodic() {
-    	
-    	 NIVision.IMAQdxStartAcquisition(session);
-    	 
-         NIVision.IMAQdxGrab(session, frame, 1);
-         CameraServer.getInstance().setImage(frame);
-        Timer.delay(0.005);
-    }
-    
-    public void testPeriodic() {
-    	
-    }
-        
-    public double deadband(double input){
-    	
-    	double threshold = 0.08;
-    	
-    	if(input < 0 && input > -threshold) return 0;
-    	else if(input > 0 && input < threshold) return 0;
-    	
-    	return input;
-    }
-    
-    public double absVal(double num){
-    	if(num < 0)
-    		return -num;
-    	else
-    		return num;
-    }
-    
+		for (int i = 0; i < 4; i++) {
+			turns[i] = new CANTalon(i);
+			turns[i].setFeedbackDevice(FeedbackDevice.AnalogEncoder);
+			turns[i].setProfile(1);
+
+			drives[i] = new Victor(i);
+		}
+
+		driver = new Joystick(0);
+
+		autonTimer = new Timer();
+	}
+
+	public void autonomousInit() {
+		autonTimer.reset();
+		autonTimer.start();
+		for(int i = 0; i < 4; i++){
+			turns[i].changeControlMode(TalonControlMode.PercentVbus);
+		}
+	}
+
+	public void autonomousPeriodic() {
+		double time = autonTimer.get();
+
+		if (time <= 24) {
+			if (time < 6.568) {
+				// turns[0].set(Math.sin(time));
+				calcSpeed = Math.sin(time);
+			} else if (time >= 6.568 && time < 16) {
+				// turns[0].set(0.5*(time * time) - 1);
+				calcSpeed = 0.5 * Math.pow(time, 0.5) - 1;
+			} else if (time >= 6.568 && time <= 24) {
+				// turns[0].set(-0.5 * Math.pow((time - 16),2) + 1);
+				calcSpeed = -0.05 * Math.pow(time - 16, 2) + 1;
+			}
+			
+			if(calcSpeed > 1) calcSpeed = 1;
+			if(calcSpeed < -1) calcSpeed = -1;
+			
+			turns[0].set(calcSpeed);
+			
+			inputWriter.printf("%.3f	%.3f\n", time, calcSpeed);
+			outputWriter.printf("%.3f	%.3f\n", time, turns[0].getSpeed());
+		} else {
+			turns[0].set(0);
+			inputWriter.close();
+			outputWriter.close();
+		}
+	}
+
+	public void teleopInit() {
+		for (int i = 0; i < turns.length; i++)
+			turns[i].changeControlMode(TalonControlMode.Position);
+
+		// NIVision.IMAQdxStartAcquisition(session);
+		lastValue = 0;
+		turnPos = turns[1].getPosition();
+	}
+
+	public void teleopPeriodic() {
+
+		// NIVision.IMAQdxStartAcquisition(session);
+
+		if (driver.getMagnitude() > 0.2)
+			turnPos = directionToTicks(driver.getDirectionDegrees());
+
+		// turns[1].set((turnPos + straights[0]) % 1365);
+		//
+		// drives[1].set(-driver.getMagnitude());
+		//
+		// for(int i = 0; i < turns.length; i++){
+
+		turns[1].set((turnPos));
+		
+		// drives[i].set(-driver.getMagnitude());
+		// }
+
+		SmartDashboard.putString("DB/String 0", "Position: " + Double.toString(turns[1].getPosition()));
+		SmartDashboard.putString("DB/String 1", "turnPos: " + Double.toString(turnPos));
+		SmartDashboard.putString("DB/String 5",
+				"Pos in degrees: " + Double.toString(ticksToDegrees(turns[1].getPosition())));
+		SmartDashboard.putString("DB/String 4", "Set value: " + Double.toString((turnPos + straights[1]) % 1365));
+
+		// NIVision.IMAQdxGrab(session, frame, 1);
+		// CameraServer.getInstance().setImage(frame);
+		// Timer.delay(0.005);
+	}
+
+	public void testPeriodic() {
+		turns[1].changeControlMode(TalonControlMode.PercentVbus);
+		SmartDashboard.putString("DB/String 3", "Stick: " + Double.toString(driver.getDirectionDegrees()));
+		SmartDashboard.putString("DB/String 4",
+				"Stick: " + Double.toString(directionToTicks(driver.getDirectionDegrees())));
+
+		SmartDashboard.putString("DB/String 0", "FL: " + Double.toString(turns[1].getPosition()));
+		SmartDashboard.putString("DB/String 1", "FR: " + Double.toString(turns[1].getPosition()));
+		SmartDashboard.putString("DB/String 2", "BL: " + Double.toString(turns[1].getPosition()));
+		// SmartDashboard.putString("DB/String 3", "BR: " +
+		// Double.toString(turns[1].getPosition()));
+	}
+
+	public double deadband(double input) {
+
+		double threshold = 0.08;
+
+		if (input < 0 && input > -threshold)
+			return 0;
+		else if (input > 0 && input < threshold)
+			return 0;
+
+		return input;
+	}
+
+	public double absVal(double num) {
+		if (num < 0)
+			return -num;
+		else
+			return num;
+	}
+
+	public int directionToTicks(double input) {
+		if (input < 0)
+			input += (360);
+
+		// SmartDashboard.putString("DB/String 2", "Stick: " +
+		// Double.toString(input));
+
+		input *= conversion;
+
+		return 1365 - (int) input;
+	}
+
+	public double ticksToDegrees(double input) {
+		return input * (1 / conversion);
+	}
+
+	public void initFiles() throws IOException {
+
+	}
 }
