@@ -36,24 +36,14 @@ public class Robot extends IterativeRobot {
 
 	final double conversion = 1023 / 270.;
 
-	// int session;
-	// Image frame;
-
 	public void robotInit() {
 
-		// frame = NIVision.imaqCreateImage(NIVision.ImageType.IMAGE_RGB, 0);
-		//
-		// // the camera name (ex "cam0") can be found through the roborio web
-		// interface
-		// session = NIVision.IMAQdxOpenCamera("cam1",
-		// NIVision.IMAQdxCameraControlMode.CameraControlModeController);
-		// NIVision.IMAQdxConfigureGrab(session);
 		f1 = new File("/media/sda1/calc/input.txt");
 		f2 = new File("/media/sda1/calc/speed.txt");
-		try{
-		inputWriter = new PrintWriter(f1);
-		outputWriter = new PrintWriter(f2);
-		}catch(IOException e){
+		try {
+			inputWriter = new PrintWriter(f1);
+			outputWriter = new PrintWriter(f2);
+		} catch (IOException e) {
 			System.out.println("File(s) not found!");
 		}
 
@@ -73,9 +63,11 @@ public class Robot extends IterativeRobot {
 	public void autonomousInit() {
 		autonTimer.reset();
 		autonTimer.start();
-		for(int i = 0; i < 4; i++){
+		for (int i = 0; i < 4; i++) {
 			turns[i].changeControlMode(TalonControlMode.PercentVbus);
 		}
+		inputWriter.println("Time" + "\t" + "Input");
+		outputWriter.println("Time" + "\t" + "Speed");
 	}
 
 	public void autonomousPeriodic() {
@@ -92,12 +84,14 @@ public class Robot extends IterativeRobot {
 				// turns[0].set(-0.5 * Math.pow((time - 16),2) + 1);
 				calcSpeed = -0.05 * Math.pow(time - 16, 2) + 1;
 			}
-			
-			if(calcSpeed > 1) calcSpeed = 1;
-			if(calcSpeed < -1) calcSpeed = -1;
-			
+
+			if (calcSpeed > 1)
+				calcSpeed = 1;
+			if (calcSpeed < -1)
+				calcSpeed = -1;
+
 			turns[0].set(calcSpeed);
-			
+
 			inputWriter.printf("%.3f	%.3f\n", time, calcSpeed);
 			outputWriter.printf("%.3f	%.3f\n", time, turns[0].getSpeed());
 		} else {
@@ -111,14 +105,11 @@ public class Robot extends IterativeRobot {
 		for (int i = 0; i < turns.length; i++)
 			turns[i].changeControlMode(TalonControlMode.Position);
 
-		// NIVision.IMAQdxStartAcquisition(session);
 		lastValue = 0;
 		turnPos = turns[1].getPosition();
 	}
 
 	public void teleopPeriodic() {
-
-		// NIVision.IMAQdxStartAcquisition(session);
 
 		if (driver.getMagnitude() > 0.2)
 			turnPos = directionToTicks(driver.getDirectionDegrees());
@@ -130,7 +121,7 @@ public class Robot extends IterativeRobot {
 		// for(int i = 0; i < turns.length; i++){
 
 		turns[1].set((turnPos));
-		
+
 		// drives[i].set(-driver.getMagnitude());
 		// }
 
@@ -140,9 +131,6 @@ public class Robot extends IterativeRobot {
 				"Pos in degrees: " + Double.toString(ticksToDegrees(turns[1].getPosition())));
 		SmartDashboard.putString("DB/String 4", "Set value: " + Double.toString((turnPos + straights[1]) % 1365));
 
-		// NIVision.IMAQdxGrab(session, frame, 1);
-		// CameraServer.getInstance().setImage(frame);
-		// Timer.delay(0.005);
 	}
 
 	public void testPeriodic() {
@@ -193,7 +181,4 @@ public class Robot extends IterativeRobot {
 		return input * (1 / conversion);
 	}
 
-	public void initFiles() throws IOException {
-
-	}
 }
