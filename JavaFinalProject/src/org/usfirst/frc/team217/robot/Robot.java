@@ -14,7 +14,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  * Drives a four-wheel independent drivebase in which each module operates on
  * two axes.
  * 
- * @author Evan de Jesus & Dylan Gaines
+ * @author Evan de Jesus
+ * @author Dylan Gaines
  * @version 05/08/2016
  */
 
