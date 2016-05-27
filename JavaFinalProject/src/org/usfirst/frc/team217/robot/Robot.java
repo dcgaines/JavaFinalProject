@@ -168,5 +168,4 @@ public class Robot extends IterativeRobot {
 	public double ticksToDegrees(double input) {
 		return input * (1 / conversion);
 	}
-
 }
