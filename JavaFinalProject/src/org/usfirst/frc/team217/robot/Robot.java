@@ -1,51 +1,57 @@
 package org.usfirst.frc.team217.robot;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
-
 import edu.wpi.first.wpilibj.CANTalon;
 import edu.wpi.first.wpilibj.CANTalon.FeedbackDevice;
 import edu.wpi.first.wpilibj.CANTalon.TalonControlMode;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.Victor;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /**
  * AP JAVA FINAL PROJECT 2K16
  * 
+ * Drives a four-wheel independent drivebase in which each module operates on
+ * two axes.
+ * 
  * @author Evan de Jesus & Dylan Gaines
  * @version 05/08/2016
  */
 
 public class Robot extends IterativeRobot {
-
+	/**
+	 * Array of turning motor talons.
+	 */
 	CANTalon[] turns = new CANTalon[4];
+	/**
+	 * Array of driving motor victors. Same addresses as talons.
+	 */
 	Victor[] drives = new Victor[4];
+	/**
+	 * PS4 controller used to operate robot.
+	 */
 	Joystick driver;
-	double lastValue, turnPos;
+	double turnPos;
+	/**
+	 * encoder values for correctly oriented turning wheels.
+	 */
 	int[] straights = { 468, 545, 531, 387 };
+	/**
+	 * current encoder values for turning wheels.
+	 */
 	int[] positions = { 0, 0, 0, 0 };
 
-	PrintWriter inputWriter, outputWriter;
-	File f1, f2;
-	Timer autonTimer;
-	double calcSpeed = 0;
+	/**
+	 * Calc project objects for collecting data from turning motor.
+	 */
 
-	final double conversion = 1023 / 270.;
+	private final double conversion = 1023 / 270.;
 
+	/**
+	 * This code executes upon first boot of the RoboRio. Used to initialize
+	 * actuators, sensors, and other objects.
+	 */
 	public void robotInit() {
-
-		f1 = new File("/media/sda1/calc/input.txt");
-		f2 = new File("/media/sda1/calc/speed.txt");
-		try {
-			inputWriter = new PrintWriter(f1);
-			outputWriter = new PrintWriter(f2);
-		} catch (IOException e) {
-			System.out.println("File(s) not found!");
-		}
 
 		for (int i = 0; i < 4; i++) {
 			turns[i] = new CANTalon(i);
@@ -57,58 +63,21 @@ public class Robot extends IterativeRobot {
 
 		driver = new Joystick(0);
 
-		autonTimer = new Timer();
 	}
 
-	public void autonomousInit() {
-		autonTimer.reset();
-		autonTimer.start();
-		for (int i = 0; i < 4; i++) {
-			turns[i].changeControlMode(TalonControlMode.PercentVbus);
-		}
-		inputWriter.println("Time" + "\t" + "Input");
-		outputWriter.println("Time" + "\t" + "Speed");
-	}
-
-	public void autonomousPeriodic() {
-		double time = autonTimer.get();
-
-		if (time <= 24) {
-			if (time < 6.568) {
-				// turns[0].set(Math.sin(time));
-				calcSpeed = Math.sin(time);
-			} else if (time >= 6.568 && time < 16) {
-				// turns[0].set(0.5*(time * time) - 1);
-				calcSpeed = 0.5 * Math.pow(time, 0.5) - 1;
-			} else if (time >= 6.568 && time <= 24) {
-				// turns[0].set(-0.5 * Math.pow((time - 16),2) + 1);
-				calcSpeed = -0.05 * Math.pow(time - 16, 2) + 1;
-			}
-
-			if (calcSpeed > 1)
-				calcSpeed = 1;
-			if (calcSpeed < -1)
-				calcSpeed = -1;
-
-			turns[0].set(calcSpeed);
-
-			inputWriter.printf("%.3f	%.3f\n", time, calcSpeed);
-			outputWriter.printf("%.3f	%.3f\n", time, turns[0].getSpeed());
-		} else {
-			turns[0].set(0);
-			inputWriter.close();
-			outputWriter.close();
-		}
-	}
-
+	/**
+	 * This code executes once upon enabling the robot in teleop (user control).
+	 */
 	public void teleopInit() {
 		for (int i = 0; i < turns.length; i++)
 			turns[i].changeControlMode(TalonControlMode.Position);
 
-		lastValue = 0;
 		turnPos = turns[1].getPosition();
 	}
 
+	/**
+	 * This code executes periodically every 20ms while enabled in teleop.
+	 */
 	public void teleopPeriodic() {
 
 		if (driver.getMagnitude() > 0.2)
@@ -133,6 +102,9 @@ public class Robot extends IterativeRobot {
 
 	}
 
+	/**
+	 * This code is used to output the encoder values of the turning motors.
+	 */
 	public void testPeriodic() {
 		turns[1].changeControlMode(TalonControlMode.PercentVbus);
 		SmartDashboard.putString("DB/String 3", "Stick: " + Double.toString(driver.getDirectionDegrees()));
@@ -146,6 +118,15 @@ public class Robot extends IterativeRobot {
 		// Double.toString(turns[1].getPosition()));
 	}
 
+	/**
+	 * Removes idle joystick input, as PS4 controllers have an idle input of
+	 * about 8%. Removing this input gets rid of Victor whining and validates
+	 * talon standby.
+	 * 
+	 * @param input
+	 *            value to be checked for zeroing.
+	 * @return throttle based on threshold criteria.
+	 */
 	public double deadband(double input) {
 
 		double threshold = 0.08;
@@ -158,13 +139,13 @@ public class Robot extends IterativeRobot {
 		return input;
 	}
 
-	public double absVal(double num) {
-		if (num < 0)
-			return -num;
-		else
-			return num;
-	}
-
+	/**
+	 * Converts joystick angle to encoder ticks via a proportionality constant.
+	 * 
+	 * @param input
+	 *            degrees to be converted to encoder ticks.
+	 * @return value encoder tick value.
+	 */
 	public int directionToTicks(double input) {
 		if (input < 0)
 			input += (360);
@@ -177,6 +158,13 @@ public class Robot extends IterativeRobot {
 		return 1365 - (int) input;
 	}
 
+	/**
+	 * Gives talon encoder value in degrees.
+	 * 
+	 * @param input
+	 *            ticks to be converted to degrees.
+	 * @return talon motor position in degrees.
+	 */
 	public double ticksToDegrees(double input) {
 		return input * (1 / conversion);
 	}
