@@ -1,24 +1,28 @@
 package org.usfirst.frc.team217.robot;
 
+import com.ni.vision.NIVision;
+import com.ni.vision.NIVision.DrawMode;
+import com.ni.vision.NIVision.Image;
+import com.ni.vision.NIVision.ShapeMode;
+
 import edu.wpi.first.wpilibj.CANTalon;
-import edu.wpi.first.wpilibj.CANTalon.FeedbackDevice;
-import edu.wpi.first.wpilibj.CANTalon.TalonControlMode;
+import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.Victor;
+import edu.wpi.first.wpilibj.CANTalon.FeedbackDevice;
+import edu.wpi.first.wpilibj.CANTalon.TalonControlMode;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /**
- * AP JAVA FINAL PROJECT 2K16
- * 
- * Drives a four-wheel independent drivebase in which each module operates on
- * two axes.
- * 
- * @author Evan de Jesus
- * @author Dylan Gaines
- * @version 05/08/2016
+ * The VM is configured to automatically run this class, and to call the
+ * functions corresponding to each mode, as described in the IterativeRobot
+ * documentation. If you change the name of this class or the package after
+ * creating this project, you must also update the manifest file in the resource
+ * directory.
  */
-
 public class Robot extends IterativeRobot {
 	/**
 	 * Array of turning motor talons.
@@ -33,42 +37,76 @@ public class Robot extends IterativeRobot {
 	 */
 	Joystick driver;
 	double turnPos;
+	double joyStickAngle, turnAngle, encTicks, encDeg;
+	boolean isReversed;
+	double driveSpeed = 0;
+	
+    int session;
+    Image frame;
+
+
 	/**
 	 * encoder values for correctly oriented turning wheels.
 	 */
-	int[] straights = { 468, 545, 531, 387 };
+	int[] straights = { 461, 539, 525, 387 };
+
 	/**
 	 * current encoder values for turning wheels.
 	 */
 	int[] positions = { 0, 0, 0, 0 };
 
-	/**
-	 * Calc project objects for collecting data from turning motor.
-	 */
-
+	double [] turnTargets = {236.203,123.797,303.797,56.203};
+	
 	private final double conversion = 1023 / 270.;
 
 	/**
-	 * This code executes upon first boot of the RoboRio. Used to initialize
-	 * actuators, sensors, and other objects.
+	 * This function is run when the robot is first started up and should be
+	 * used for any initialization code.
 	 */
 	public void robotInit() {
 
 		for (int i = 0; i < 4; i++) {
 			turns[i] = new CANTalon(i);
-			turns[i].setFeedbackDevice(FeedbackDevice.AnalogEncoder);
+			turns[i].setFeedbackDevice(FeedbackDevice.AnalogPot);
 			turns[i].setProfile(1);
 
 			drives[i] = new Victor(i);
+			turns[i].setP(2.1);
 		}
 
 		driver = new Joystick(0);
+		
+        frame = NIVision.imaqCreateImage(NIVision.ImageType.IMAGE_RGB, 0);
+
+        // the camera name (ex "cam0") can be found through the roborio web interface
+        session = NIVision.IMAQdxOpenCamera("cam1",
+                NIVision.IMAQdxCameraControlMode.CameraControlModeController);
+        NIVision.IMAQdxConfigureGrab(session);
 
 	}
 
 	/**
-	 * This code executes once upon enabling the robot in teleop (user control).
+	 * This autonomous (along with the chooser code above) shows how to select
+	 * between different autonomous modes using the dashboard. The sendable
+	 * chooser code works with the Java SmartDashboard. If you prefer the
+	 * LabVIEW Dashboard, remove all of the chooser code and uncomment the
+	 * getString line to get the auto name from the text box below the Gyro
+	 *
+	 * You can add additional auto modes by adding additional comparisons to the
+	 * switch structure below with additional strings. If using the
+	 * SendableChooser make sure to add them to the chooser code above as well.
 	 */
+	public void autonomousInit() {
+
+	}
+
+	/**
+	 * This function is called periodically during autonomous
+	 */
+	public void autonomousPeriodic() {
+
+	}
+
 	public void teleopInit() {
 		for (int i = 0; i < turns.length; i++)
 			turns[i].changeControlMode(TalonControlMode.Position);
@@ -77,96 +115,104 @@ public class Robot extends IterativeRobot {
 	}
 
 	/**
-	 * This code executes periodically every 20ms while enabled in teleop.
+	 * This function is called periodically during operator control
 	 */
 	public void teleopPeriodic() {
+        NIVision.IMAQdxGrab(session, frame, 1);
+        CameraServer.getInstance().setImage(frame);
+		
+		if (deadband(driver.getZ()) == 0) {
+			if (driver.getMagnitude() > .25) {
+				for (int i = 0; i < 4; i++) {
+					turns[i].set((__(driver.getDirectionDegrees()) + straights[i]) % (1365));
+				}
 
-		if (driver.getMagnitude() > 0.2)
-			turnPos = directionToTicks(driver.getDirectionDegrees());
+			}
+			printToDash();
 
-		// turns[1].set((turnPos + straights[0]) % 1365);
-		//
-		// drives[1].set(-driver.getMagnitude());
-		//
-		// for(int i = 0; i < turns.length; i++){
-
-		turns[1].set((turnPos));
-
-		// drives[i].set(-driver.getMagnitude());
-		// }
-
-		SmartDashboard.putString("DB/String 0", "Position: " + Double.toString(turns[1].getPosition()));
-		SmartDashboard.putString("DB/String 1", "turnPos: " + Double.toString(turnPos));
-		SmartDashboard.putString("DB/String 5",
-				"Pos in degrees: " + Double.toString(ticksToDegrees(turns[1].getPosition())));
-		SmartDashboard.putString("DB/String 4", "Set value: " + Double.toString((turnPos + straights[1]) % 1365));
-
+			driveSpeed = -deadband(driver.getMagnitude());
+			if (isReversed)
+				driveSpeed *= -1;
+			for (int i = 0; i < 4; i++) {
+				if (i == 2)
+					drives[i].set(-driveSpeed);
+				else
+					drives[i].set(driveSpeed);
+			}
+		} else if(deadband(driver.getZ()) != 0){
+			for(int i = 0; i < 4; i++){
+				turns[i].set((__(turnTargets[i]) + straights[i]) % 1365);
+				driveSpeed = -deadband(driver.getZ());
+				if (isReversed)
+					driveSpeed *= -1;
+					if (i == 2)
+						drives[i].set(-driveSpeed);
+					else
+						drives[i].set(driveSpeed);
+				
+			}
+		}
+		else{
+			for(int i = 0; i < 4; i++){
+				drives[i].set(0);
+			}
+		}
+        Timer.delay(0.005);		// wait for a motor update time
+		
 	}
 
 	/**
-	 * This code is used to output the encoder values of the turning motors.
+	 * This function is called periodically during test mode
 	 */
 	public void testPeriodic() {
-		turns[1].changeControlMode(TalonControlMode.PercentVbus);
-		SmartDashboard.putString("DB/String 3", "Stick: " + Double.toString(driver.getDirectionDegrees()));
-		SmartDashboard.putString("DB/String 4",
-				"Stick: " + Double.toString(directionToTicks(driver.getDirectionDegrees())));
-
-		SmartDashboard.putString("DB/String 0", "FL: " + Double.toString(turns[1].getPosition()));
-		SmartDashboard.putString("DB/String 1", "FR: " + Double.toString(turns[1].getPosition()));
-		SmartDashboard.putString("DB/String 2", "BL: " + Double.toString(turns[1].getPosition()));
-		// SmartDashboard.putString("DB/String 3", "BR: " +
-		// Double.toString(turns[1].getPosition()));
+		printToDash();
 	}
 
-	/**
-	 * Removes idle joystick input, as PS4 controllers have an idle input of
-	 * about 8%. Removing this input gets rid of Victor whining and validates
-	 * talon standby.
-	 * 
-	 * @param input
-	 *            value to be checked for zeroing.
-	 * @return throttle based on threshold criteria.
-	 */
+	public void printToDash() {
+		SmartDashboard.putString("DB/String 0",
+				Double.toString(ticksToDegrees(turns[1].getPosition())));
+
+		SmartDashboard.putString("DB/String 5",
+				"0: " + Double.toString(turns[0].getPosition()));
+		SmartDashboard.putString("DB/String 6",
+				"1: " + Double.toString(turns[1].getPosition()));
+		SmartDashboard.putString("DB/String 7",
+				"2: " + Double.toString(turns[2].getPosition()));
+		SmartDashboard.putString("DB/String 8",
+				"3: " + Double.toString(turns[3].getPosition()));
+	}
+
+	public double ticksToDegrees(double tick) {
+		return tick / conversion;
+	}
+
+	public int degreeToTick(double degree) {
+		return (int) (degree * conversion);
+	}
+
 	public double deadband(double input) {
-
-		double threshold = 0.08;
-
-		if (input < 0 && input > -threshold)
+		if (input < .08 && input > -.08)
 			return 0;
-		else if (input > 0 && input < threshold)
-			return 0;
-
-		return input;
+		else
+			return input;
 	}
+	
+	public double __(double input){
+		joyStickAngle = input;
+		if (joyStickAngle < 0)
+			joyStickAngle += 360;
+		joyStickAngle = 360 - joyStickAngle;
 
-	/**
-	 * Converts joystick angle to encoder ticks via a proportionality constant.
-	 * 
-	 * @param input
-	 *            degrees to be converted to encoder ticks.
-	 * @return value encoder tick value.
-	 */
-	public int directionToTicks(double input) {
-		if (input < 0)
-			input += (360);
+		if (joyStickAngle < 270 && joyStickAngle > 90) {
+			joyStickAngle += 180;
+			isReversed = true;
+		} else {
+			isReversed = false;
+		}
+		if (joyStickAngle > 360)
+			joyStickAngle -= 360;
+		turnPos = degreeToTick(joyStickAngle);
 
-		// SmartDashboard.putString("DB/String 2", "Stick: " +
-		// Double.toString(input));
-
-		input *= conversion;
-
-		return 1365 - (int) input;
-	}
-
-	/**
-	 * Gives talon encoder value in degrees.
-	 * 
-	 * @param input
-	 *            ticks to be converted to degrees.
-	 * @return talon motor position in degrees.
-	 */
-	public double ticksToDegrees(double input) {
-		return input * (1 / conversion);
+		return turnPos;
 	}
 }
