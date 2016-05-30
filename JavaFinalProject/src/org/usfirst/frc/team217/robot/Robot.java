@@ -1,77 +1,99 @@
 package org.usfirst.frc.team217.robot;
 
 import com.ni.vision.NIVision;
-import com.ni.vision.NIVision.DrawMode;
 import com.ni.vision.NIVision.Image;
-import com.ni.vision.NIVision.ShapeMode;
 
 import edu.wpi.first.wpilibj.AnalogGyro;
 import edu.wpi.first.wpilibj.CANTalon;
+import edu.wpi.first.wpilibj.CANTalon.FeedbackDevice;
+import edu.wpi.first.wpilibj.CANTalon.TalonControlMode;
 import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.Victor;
-import edu.wpi.first.wpilibj.CANTalon.FeedbackDevice;
-import edu.wpi.first.wpilibj.CANTalon.TalonControlMode;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /**
- * The VM is configured to automatically run this class, and to call the
- * functions corresponding to each mode, as described in the IterativeRobot
- * documentation. If you change the name of this class or the package after
- * creating this project, you must also update the manifest file in the resource
- * directory.
+ * JAVA FINAL PROJECT 2K16
+ * 
+ * This program operates a four-wheel independent drivebase in which each wheel
+ * operates on two axes. Wheel angle is monitored by absolute potentiometers
+ * feeding into TalonSRX motor controllers. Wheels are turned with bag motors
+ * and driven by mini-cim motors.
+ * 
+ * The modes of operation are crab drive and snake drive; when only the left
+ * joystick is given throttle, the robot moves in the direction of the joystick
+ * and maintains its orientation. In snake mode, the robot moves radially around
+ * a point outside of the chassis with a maximum turn radius of 67.5 degrees.
+ * The robot can also make a zero point turn when the right trigger is pressed.
+ * 
+ * @author Evan de Jesus
+ * @author Dylan Gaines
+ * @version 5/29/2016
  */
 public class Robot extends IterativeRobot {
 	/**
 	 * Array of turning motor talons.
 	 */
 	CANTalon[] turns = new CANTalon[4];
+
 	/**
 	 * Array of driving motor victors. Same addresses as talons.
 	 */
 	Victor[] drives = new Victor[4];
+
 	/**
 	 * PS4 controller used to operate robot.
 	 */
 	Joystick driver;
-	double turnPos;
+
+	/**
+	 * Values that are used to aid the calculations between degrees and encoder
+	 * ticks.
+	 */
 	double joyStickAngle, turnAngle, encTicks, encDeg;
+
+	/**
+	 * Becomes true when the module flips direction in order to avoid hitting
+	 * the 90 degree deadzone.
+	 */
 	boolean isReversed;
-	double driveSpeed = 0;
 
-	AnalogGyro gyro;
-
+	/**
+	 * Arrays that hold the angles and speed ratios necessary for the robot to
+	 * drive in snake mode.
+	 */
 	double[] a_i = { 0, 7.321, 15.945, 26.055, 37.626, 50.264, 63.182, 75.476, 86.497, 87.131, 79.046 };
 	double[] a_o = { 0, 6.261, 11.696, 16.5, 20.833, 24.823, 28.573, 32.172, 35.696, 39.218, 42.81 };
 	double[] zs = new double[a_i.length];
 	double[] ratios = { 1.000, 0.856, 0.738, 0.647, 0.583, 0.546, 0.536, 0.550, 0.585, 0.633, 0.692 };
 
+	/**
+	 * Camera variables.
+	 */
 	int session;
 	Image frame;
 
 	/**
-	 * encoder values for correctly oriented turning wheels.
+	 * Encoder values for correctly oriented turning wheels.
 	 */
 	int[] straights = { 461, 539, 525, 387 };
 
 	/**
-	 * current encoder values for turning wheels.
+	 * Angles for zero point turning.
 	 */
-	int[] positions = { 0, 0, 0, 0 };
-
 	double[] turnTargets = { 236.203, 123.797, 303.797, 56.203 };
 
 	private final double conversion = 1023 / 270.;
 
 	/**
-	 * This function is run when the robot is first started up and should be
-	 * used for any initialization code.
+	 * This method runs when the robot is first started up and should be used
+	 * for any initialization code.
 	 */
 	public void robotInit() {
 
+		// Talons are calibrated for position control.
 		for (int i = 0; i < 4; i++) {
 			turns[i] = new CANTalon(i);
 			turns[i].setFeedbackDevice(FeedbackDevice.AnalogPot);
@@ -80,85 +102,67 @@ public class Robot extends IterativeRobot {
 			drives[i] = new Victor(i);
 			turns[i].setP(2.5);
 		}
+
+		// Will be used to map the Z axis to discrete values.
 		zs[0] = 0;
 		for (int i = 1; i < 11; i++) {
 			zs[11 - i] = 1 / i;
 		}
 
-		gyro = new AnalogGyro(1);
-		// gyro.initGyro();
-		gyro.setSensitivity(0.0128);
-
 		driver = new Joystick(0);
 
+		// Vision code
 		frame = NIVision.imaqCreateImage(NIVision.ImageType.IMAGE_RGB, 0);
-
-		// the camera name (ex "cam0") can be found through the roborio web
-		// interface
 		session = NIVision.IMAQdxOpenCamera("cam1", NIVision.IMAQdxCameraControlMode.CameraControlModeController);
 		NIVision.IMAQdxConfigureGrab(session);
 
 	}
 
 	/**
-	 * This autonomous (along with the chooser code above) shows how to select
-	 * between different autonomous modes using the dashboard. The sendable
-	 * chooser code works with the Java SmartDashboard. If you prefer the
-	 * LabVIEW Dashboard, remove all of the chooser code and uncomment the
-	 * getString line to get the auto name from the text box below the Gyro
-	 *
-	 * You can add additional auto modes by adding additional comparisons to the
-	 * switch structure below with additional strings. If using the
-	 * SendableChooser make sure to add them to the chooser code above as well.
+	 * This method is called once upon the start of operator control.
 	 */
-	public void autonomousInit() {
-
-	}
-
-	/**
-	 * This function is called periodically during autonomous
-	 */
-	public void autonomousPeriodic() {
-
-	}
-
 	public void teleopInit() {
 		for (int i = 0; i < turns.length; i++)
 			turns[i].changeControlMode(TalonControlMode.Position);
-
-		turnPos = turns[1].getPosition();
-
-		gyro.reset();
 	}
 
 	/**
-	 * This function is called periodically during operator control
+	 * This method is called periodically during operator control.
 	 */
 	public void teleopPeriodic() {
 		NIVision.IMAQdxGrab(session, frame, 1);
 		CameraServer.getInstance().setImage(frame);
+
+		// Zero point turn. All wheels become tangent to the center to create an
+		// ellipse.
 		if (driver.getRawButton(8)) {
 			for (int i = 0; i < 4; i++) {
 				turns[i].set((__(turnTargets[i]) + straights[i]) % 1365);
-				driveSpeed = -deadband(driver.getZ());
+				double turnSpeed = -deadband(driver.getZ());
 				if (isReversed)
-					driveSpeed *= -1;
+					turnSpeed *= -1;
 				if (i == 2)
-					drives[i].set(-driveSpeed);
+					drives[i].set(-turnSpeed);
 				else
-					drives[i].set(driveSpeed);
+					drives[i].set(turnSpeed);
 
 			}
-		} else if (deadband(driver.getZ()) == 0 && deadband(driver.getMagnitude()) != 0) {
+		} /*
+			 * Crab mode. All wheels follow the same direction and the chassis
+			 * maintains orientation.
+			 */
+		else if (deadband(driver.getZ()) == 0 && deadband(driver.getMagnitude()) != 0) {
 			if (driver.getMagnitude() > .1) {
 				for (int i = 0; i < 4; i++) {
+					/*
+					 * Angle is converted so that the wheel is displaced in
+					 * relation to its straight value.
+					 */
 					turns[i].set((__(driver.getDirectionDegrees()) + straights[i]) % (1365));
-					printToDash();
 				}
-
 			}
 
-			driveSpeed = -deadband(driver.getMagnitude());
+			double driveSpeed = -deadband(driver.getMagnitude());
 			if (isReversed)
 				driveSpeed *= -1;
 			for (int i = 0; i < 4; i++) {
@@ -167,7 +171,15 @@ public class Robot extends IterativeRobot {
 				else
 					drives[i].set(driveSpeed);
 			}
-		} else if (deadband(driver.getZ()) != 0 && deadband(driver.getMagnitude()) != 0) {
+		} /*
+			 * Snake mode. All wheels become tangent to a circle whose center is
+			 * the rotation point. Inside wheels are slowed down based on
+			 * distance ratio, and the angles of the insides wheels are sharper.
+			 * 
+			 * Turn radius is limited to 67.5 degrees in order to avoid wheel
+			 * twitch.
+			 */
+		else if (deadband(driver.getZ()) != 0 && deadband(driver.getMagnitude()) != 0) {
 
 			int input = (int) Math.round(-driver.getZ() * 10);
 			if (input < 0) {
@@ -197,8 +209,8 @@ public class Robot extends IterativeRobot {
 				drives[2].set(speed_o);
 				drives[3].set(-speed_o);
 			}
-
-		} else {
+		} // Idle input stops all motors.
+		else {
 			for (int i = 0; i < 4; i++) {
 				drives[i].set(0);
 			}
@@ -207,73 +219,68 @@ public class Robot extends IterativeRobot {
 
 	}
 
-	public void testInit() {
-		for (int i = 0; i < turns.length; i++)
-			turns[i].changeControlMode(TalonControlMode.Position);
-
-		// for (int i = 0; i < a_i.length; i++) {
-		// turns[0].set((__(a_o[i]) + straights[0]) % 1365);
-		// turns[1].set((__(360 - a_o[i]) + straights[1]) % 1365);
-		// turns[2].set((__(a_i[i]) + straights[2]) % 1365);
-		// turns[3].set((__(360 - a_i[i]) + straights[3]) % 1365);
-		// Timer.delay(1);
-		// }
-	}
-
 	/**
-	 * This function is called periodically during test mode
+	 * converts between encoder ticks and degrees for easier calculation.
+	 * Encoder values range from 0-1023 whereas it is more intuitive to operate
+	 * on a 360 degree circle.
+	 * 
+	 * @param tick
+	 *            encoder position to be converted
+	 * @return degree value of turn motor
 	 */
-	public void testPeriodic() {
-		int multi = 1;
-		int input = (int) Math.round(-driver.getZ() * 10);
-		if (input < 0) {
-			input = -input;
-			multi = -1;
-		}
-		turns[0].set((__(a_o[input] * multi) + straights[0]) % 1365);
-		turns[1].set((__(360 - a_o[input] * multi) + straights[1]) % 1365);
-		turns[2].set((__(a_i[input] * multi) + straights[2]) % 1365);
-		turns[3].set((__(360 - a_i[input] * multi) + straights[3]) % 1365);
-	}
-
-	public void printToDash() {
-		SmartDashboard.putString("DB/String 0", Double.toString(ticksToDegrees(turns[1].getPosition())));
-		try {
-			SmartDashboard.putString("DB/String 9", String.format("%.2f", (gyro.getAngle())));
-		} catch (Exception e) {
-			System.out.println("Error");
-		}
-		// SmartDashboard.putString("DB/String 5", "0: " +
-		// Double.toString(turns[0].getPosition()));
-		// SmartDashboard.putString("DB/String 6", "1: " +
-		// Double.toString(turns[1].getPosition()));
-		// SmartDashboard.putString("DB/String 7", "2: " +
-		// Double.toString(turns[2].getPosition()));
-		// SmartDashboard.putString("DB/String 8", "3: " +
-		// Double.toString(turns[3].getPosition()));
-	}
-
 	public double ticksToDegrees(double tick) {
 		return tick / conversion;
 	}
 
-	public int degreeToTick(double degree) {
+	/**
+	 * Converts calculated degree to encoder position.
+	 * 
+	 * @param degree
+	 *            value to be converted to ticks
+	 * @return tick value that the motor will be set to.
+	 */
+	public int degreesToTicks(double degree) {
 		return (int) (degree * conversion);
 	}
 
+	/**
+	 * removes idle joystick input at 8% as PS4 controllers have a slight input
+	 * when the joystick is in its neutral position.
+	 * 
+	 * @param input
+	 *            joystick input to be checked
+	 * @return truncated joystick input when the stick is idle
+	 */
 	public double deadband(double input) {
-		if (input < .08 && input > -.08)
+
+		final double threshold = 0.08;
+
+		if (Math.abs(input) < threshold)
 			return 0;
-		else
-			return input;
+
+		return input;
 	}
 
+	/**
+	 * Maps the joystick angle to a 360 degree circle, and restricts the motor
+	 * to operate within 180 degrees, as pots have a 90 degree deadzone in which
+	 * values are not recorded. This logic reverses the motor and sets the
+	 * direction to the opposite of the desired angle.
+	 * 
+	 * @param input
+	 *            angle to be converted, which will set the motor to the desired
+	 *            position.
+	 * @return encoder value that the turn motor will be set to.
+	 */
 	public double __(double input) {
+		// Joystick is formatted for intuitive calculations
 		joyStickAngle = input;
 		if (joyStickAngle < 0)
 			joyStickAngle += 360;
 		joyStickAngle = 360 - joyStickAngle;
 
+		// wheel is limited to 180 degree freedom, drive motor is reversed when
+		// desired angle is outside this range
 		if (joyStickAngle < 270 && joyStickAngle > 90) {
 			joyStickAngle += 180;
 			isReversed = true;
@@ -282,7 +289,7 @@ public class Robot extends IterativeRobot {
 		}
 		if (joyStickAngle > 360)
 			joyStickAngle -= 360;
-		turnPos = degreeToTick(joyStickAngle);
+		double turnPos = degreesToTicks(joyStickAngle);
 
 		return turnPos;
 	}
