@@ -3,7 +3,6 @@ package org.usfirst.frc.team217.robot;
 import com.ni.vision.NIVision;
 import com.ni.vision.NIVision.Image;
 
-import edu.wpi.first.wpilibj.AnalogGyro;
 import edu.wpi.first.wpilibj.CANTalon;
 import edu.wpi.first.wpilibj.CANTalon.FeedbackDevice;
 import edu.wpi.first.wpilibj.CANTalon.TalonControlMode;
@@ -12,7 +11,6 @@ import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.Victor;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /**
  * JAVA FINAL PROJECT 2K16
@@ -180,7 +178,8 @@ public class Swerve extends IterativeRobot {
 			 * twitch.
 			 */
 		else if (deadband(driver.getZ()) != 0 && deadband(driver.getMagnitude()) != 0) {
-
+			
+			//Maps Z axis to discrete values, which have equivalent angles and speed ratios.
 			int input = (int) Math.round(-driver.getZ() * 10);
 			if (input < 0) {
 				input = -input;
