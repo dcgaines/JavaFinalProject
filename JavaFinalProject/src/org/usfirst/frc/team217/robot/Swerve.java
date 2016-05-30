@@ -32,7 +32,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  * @author Dylan Gaines
  * @version 5/29/2016
  */
-public class Robot extends IterativeRobot {
+public class Swerve extends IterativeRobot {
 	/**
 	 * Array of turning motor talons.
 	 */
