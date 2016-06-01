@@ -30,7 +30,7 @@ import edu.wpi.first.wpilibj.Victor;
  * @author Dylan Gaines
  * @version 5/29/2016
  */
-public class Swerve extends IterativeRobot {
+public class Robot extends IterativeRobot {
 	/**
 	 * Array of turning motor talons.
 	 */
