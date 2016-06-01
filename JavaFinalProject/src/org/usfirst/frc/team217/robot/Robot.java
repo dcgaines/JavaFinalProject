@@ -149,8 +149,13 @@ public class Robot extends IterativeRobot {
 			 * Crab mode. All wheels follow the same direction and the chassis
 			 * maintains orientation.
 			 */
-		else if (deadband(driver.getZ()) == 0 && deadband(driver.getMagnitude()) != 0) {
-			if (driver.getMagnitude() > .1) {
+		else if (deadband(driver.getZ()) == 0 && deadband(driver.getMagnitude()) != 0){
+			//Straighten wheels for perfect straight drive
+			if (driver.getRawButton(7)) {
+				for (int i = 0; i < 4; i++) {
+					turns[i].set(straights[i]);
+				}
+			} else if (driver.getMagnitude() > .1) {
 				for (int i = 0; i < 4; i++) {
 					/*
 					 * Angle is converted so that the wheel is displaced in
@@ -178,8 +183,9 @@ public class Robot extends IterativeRobot {
 			 * twitch.
 			 */
 		else if (deadband(driver.getZ()) != 0 && deadband(driver.getMagnitude()) != 0) {
-			
-			//Maps Z axis to discrete values, which have equivalent angles and speed ratios.
+
+			// Maps Z axis to discrete values, which have equivalent angles and
+			// speed ratios.
 			int input = (int) Math.round(-driver.getZ() * 10);
 			if (input < 0) {
 				input = -input;
