@@ -3,14 +3,17 @@ package org.usfirst.frc.team217.robot;
 import com.ni.vision.NIVision;
 import com.ni.vision.NIVision.Image;
 
+import edu.wpi.first.wpilibj.AnalogGyro;
 import edu.wpi.first.wpilibj.CANTalon;
 import edu.wpi.first.wpilibj.CANTalon.FeedbackDevice;
 import edu.wpi.first.wpilibj.CANTalon.TalonControlMode;
 import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.PowerDistributionPanel;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.Victor;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /**
  * JAVA FINAL PROJECT 2K16
@@ -73,6 +76,8 @@ public class Robot extends IterativeRobot {
 	int session;
 	Image frame;
 
+	// AnalogGyro gyro;
+
 	/**
 	 * Encoder values for correctly oriented turning wheels.
 	 */
@@ -98,7 +103,7 @@ public class Robot extends IterativeRobot {
 			turns[i].setProfile(1);
 
 			drives[i] = new Victor(i);
-			turns[i].setP(2.5);
+			turns[i].setP(3.5);
 		}
 
 		// Will be used to map the Z axis to discrete values.
@@ -107,11 +112,14 @@ public class Robot extends IterativeRobot {
 			zs[11 - i] = 1 / i;
 		}
 
+		// PS4 Controller
 		driver = new Joystick(0);
+
+		// gyro = new AnalogGyro(0);
 
 		// Vision code
 		frame = NIVision.imaqCreateImage(NIVision.ImageType.IMAGE_RGB, 0);
-		session = NIVision.IMAQdxOpenCamera("cam1", NIVision.IMAQdxCameraControlMode.CameraControlModeController);
+		session = NIVision.IMAQdxOpenCamera("cam0", NIVision.IMAQdxCameraControlMode.CameraControlModeController);
 		NIVision.IMAQdxConfigureGrab(session);
 
 	}
@@ -131,7 +139,8 @@ public class Robot extends IterativeRobot {
 		NIVision.IMAQdxGrab(session, frame, 1);
 		CameraServer.getInstance().setImage(frame);
 
-		// Zero point turn. All wheels become tangent to the center to create an
+		// Zero point turn. All wheels become tangent to th][\e center to create
+		// an
 		// ellipse.
 		if (driver.getRawButton(8)) {
 			for (int i = 0; i < 4; i++) {
@@ -149,8 +158,8 @@ public class Robot extends IterativeRobot {
 			 * Crab mode. All wheels follow the same direction and the chassis
 			 * maintains orientation.
 			 */
-		else if (deadband(driver.getZ()) == 0 && deadband(driver.getMagnitude()) != 0){
-			//Straighten wheels for perfect straight drive
+		else if (deadband(driver.getZ()) == 0 && deadband(driver.getMagnitude()) != 0) {
+			// Straighten wheels for perfect straight drive
 			if (driver.getRawButton(7)) {
 				for (int i = 0; i < 4; i++) {
 					turns[i].set(straights[i]);
