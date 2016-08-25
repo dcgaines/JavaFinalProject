@@ -1,6 +1,7 @@
 package org.usfirst.frc.team217.robot;
 
 import com.ni.vision.NIVision;
+import com.kauailabs.navx.frc.*;
 import com.ni.vision.NIVision.Image;
 
 import edu.wpi.first.wpilibj.AnalogGyro;
@@ -11,6 +12,7 @@ import edu.wpi.first.wpilibj.CameraServer;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.PowerDistributionPanel;
+import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.Victor;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -34,6 +36,9 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
  * @version 6/24/2016
  */
 public class Robot extends IterativeRobot {
+
+	AHRS ahrs;
+
 	/**
 	 * Array of turning motor talons.
 	 */
@@ -89,12 +94,16 @@ public class Robot extends IterativeRobot {
 	double[] turnTargets = { 236.203, 123.797, 303.797, 56.203 };
 
 	private final double conversion = 1023 / 270.;
+	boolean fieldCentric = false;
 
 	/**
 	 * This method runs when the robot is first started up and should be used
 	 * for any initialization code.
 	 */
 	public void robotInit() {
+
+		ahrs = new AHRS(SPI.Port.kMXP);
+		ahrs.resetDisplacement();
 
 		// Talons are calibrated for position control.
 		for (int i = 0; i < 4; i++) {
@@ -103,7 +112,7 @@ public class Robot extends IterativeRobot {
 			turns[i].setProfile(1);
 
 			drives[i] = new Victor(i);
-			turns[i].setP(3.5);
+			turns[i].setP(3.25);
 		}
 
 		// Will be used to map the Z axis to discrete values.
@@ -136,6 +145,22 @@ public class Robot extends IterativeRobot {
 	 * This method is called periodically during operator control.
 	 */
 	public void teleopPeriodic() {
+		double xAngle = ahrs.getAngle();
+		double xDisp = ahrs.getDisplacementX();
+		double yDisp = ahrs.getDisplacementY();
+		double zDisp = ahrs.getDisplacementZ();
+		if (driver.getRawButton(13))
+			ahrs.reset();
+		if (driver.getRawButton(9))
+			ahrs.resetDisplacement();
+
+		SmartDashboard.putNumber("Yaw", xAngle % 360);
+		SmartDashboard.putNumber("Roll", ahrs.getPitch());
+		SmartDashboard.putNumber("Pitch", ahrs.getRoll());
+		SmartDashboard.putNumber("Yaw Rate", ahrs.getRate());
+		// SmartDashboard.putNumber("Z Displacement", zDisp);
+		SmartDashboard.putBoolean("isCalibrating", ahrs.isCalibrating());
+
 		NIVision.IMAQdxGrab(session, frame, 1);
 		CameraServer.getInstance().setImage(frame);
 
@@ -170,7 +195,14 @@ public class Robot extends IterativeRobot {
 					 * Angle is converted so that the wheel is displaced in
 					 * relation to its straight value.
 					 */
-					turns[i].set((__(driver.getDirectionDegrees()) + straights[i]) % (1365));
+					if (fieldCentric) {
+						turns[i].set((__((driver.getDirectionDegrees() - xAngle) % 360) + straights[i]) % (1365));
+						SmartDashboard.putNumber("Wheel Input", (driver.getDirectionDegrees() - xAngle) % 360);
+					} else {
+
+						turns[i].set((__(driver.getDirectionDegrees() % 360) + straights[i]) % (1365));
+						SmartDashboard.putNumber("Wheel Input", driver.getDirectionDegrees() % 360);
+					}
 				}
 			}
 
@@ -184,7 +216,7 @@ public class Robot extends IterativeRobot {
 					drives[i].set(driveSpeed);
 			}
 		} /*
-			 * Snake mode. All wheels become tangent to a circle whose center is
+			 * Snek mode. All wheels become tangent to a circle whose center is
 			 * the rotation point. Inside wheels are slowed down based on
 			 * distance ratio, and the angles of the insides wheels are sharper.
 			 * 
